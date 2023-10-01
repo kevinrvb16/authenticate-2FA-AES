@@ -12,7 +12,8 @@ const FacebookStrategy = require("passport-facebook");
 const findOrCreate = require("mongoose-findorcreate");
 const otplib = require('otplib');
 const qrcode = require('qrcode');
-
+const speakeasy = require('speakeasy');
+let secretKey2FA = "";
 const app = express();
 
 app.use(express.static("public"));
@@ -123,7 +124,7 @@ app.get("/qrcode", function(req,res){
   User.findById(req.user.id)
   .then(function(user){
     if (user){
-      const secretKey2FA = otplib.authenticator.generateSecret();
+      secretKey2FA = otplib.authenticator.generateSecret();
       // Gere uma URL para o código QR
       const otpauthUrl = otplib.authenticator.keyuri(user.id, user.name, secretKey2FA);
       // Crie o código QR
@@ -140,6 +141,24 @@ app.get("/qrcode", function(req,res){
     console.log(err)
   })
 })
+
+app.post("/qrcode", function(req, res){
+  // A chave secreta compartilhada entre o servidor e o Google Authenticator
+
+  // O código fornecido pelo usuário (geralmente inserido manualmente)
+  const userProvidedCode = req.body.token;
+
+  // Verificar se o código fornecido é válido
+  const isValid = otplib.authenticator.check(userProvidedCode, secretKey2FA);
+
+  // Exibir se o código é válido ou não
+  if (isValid) {
+    res.redirect("/secrets");
+  } else {
+    res.redirect("/qrcode");
+  }
+
+});
 
 app.post("/submit", function(req, res){
   const submitedSecret = req.body.secret
@@ -158,8 +177,34 @@ app.post("/submit", function(req, res){
 })
 
 app.post('/login', passport.authenticate('local', { failureRedirect: '/login' }), function(req, res) {
-    res.redirect('/secrets');
+    res.redirect('/verify');
 });
+
+app.post("/verify", function(req, res) {
+  const userToken = req.body.token; // Token inserido pelo usuário
+
+  // Obter a chave secreta do usuário do banco de dados
+  const user = User.findOne({ username: req.body.username });
+  const secret = user.googleAuthSecret;
+
+  // Verificar se o token inserido pelo usuário é válido
+  const verified = speakeasy.totp.verify({
+      secret: secret,
+      encoding: 'base32',
+      token: userToken,
+      window: 1 // Permite tokens para os últimos 30 segundos e os próximos 30 segundos
+  });
+
+  if (verified) {
+      res.redirect("/secrets");
+  } else {
+      res.redirect("/verify");
+  }
+});
+
+app.get("/verify", function(req, res){
+  res.render("verify", {username: req.body.username})
+})
 
 app.listen(3000, function(){
     console.log("Server started on port 3000")

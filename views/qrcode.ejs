@@ -8,9 +8,15 @@
     <img src="<%= data_url %>" alt="QR Code">
 
     <hr>
-    
+    <h1>Verificação de 2FA</h1>
+    <p>Insira o código gerado pelo Google Authenticator:</p>
+    <form method="POST" action="/qrcode">
+        <label for="token">Código:</label>
+        <input type="text" id="token" name="token" required>
+        <br>
+        <input class="btn btn-light btn-lg" type="submit" value="Verificar">
+    </form>
     <a class="btn btn-light btn-lg" href="/logout" role="button">Log Out</a>
-    <a class="btn btn-dark btn-lg" href="/submit" role="button">Submit a Secret</a>
   </div>
 </div>
 

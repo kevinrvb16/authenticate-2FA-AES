@@ -1,0 +1,13 @@
+<%- include('partials/header') %>
+
+    <h1>Verificação de 2FA</h1>
+    <p>Insira o código gerado pelo Google Authenticator:</p>
+    <form method="POST" action="/verify">
+        <label for="token">Código:</label>
+        <input type="text" id="token" name="token" required>
+        <br>
+        <input type="submit" value="Verificar">
+    </form>
+</body>
+
+<%- include('partials/footer') %>
