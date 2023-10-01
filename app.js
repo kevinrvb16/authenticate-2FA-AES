@@ -123,8 +123,18 @@ app.get("/qrcode", function(req,res){
   User.findById(req.user.id)
   .then(function(user){
     if (user){
-      const qrcode_url = integrateWithGoogleAuthenticator(user)
-      res.render("qrcode", {qrcode_url})
+      const secretKey2FA = otplib.authenticator.generateSecret();
+      // Gere uma URL para o código QR
+      const otpauthUrl = otplib.authenticator.keyuri(user.id, user.name, secretKey2FA);
+      // Crie o código QR
+      qrcode.toDataURL(otpauthUrl, (err, data_url) => {
+        if (err) {
+          console.error(err);
+          return;
+        }
+        // Exiba ou salve o data_url para gerar o código QR
+        res.render("qrcode", {data_url})
+      });
     }
   }).catch(function(err){
     console.log(err)
@@ -154,26 +164,3 @@ app.post('/login', passport.authenticate('local', { failureRedirect: '/login' })
 app.listen(3000, function(){
     console.log("Server started on port 3000")
 })
-
-function integrateWithGoogleAuthenticator(user) {
-  const secretKey2FA = otplib.authenticator.generateSecret();
-
-  // Gere uma URL para o código QR
-  const otpauthUrl = otplib.authenticator.keyuri(user.username, user.username, secretKey2FA);
-  console.log('otpauthUrl:', otpauthUrl);
-  console.log('secretKey2FA:', secretKey2FA);
-  console.log('user:', user);
-  // Crie o código QR
-  const qrcode_url = qrcode.toDataURL(otpauthUrl, (err, data_url) => {
-    if (err) {
-      console.error(err);
-      return;
-    }
-
-    // Exiba ou salve o data_url para gerar o código QR
-    console.log('Código QR gerado:', data_url);
-    return data_url;
-  });
-  return qrcode_url;
-}
-
