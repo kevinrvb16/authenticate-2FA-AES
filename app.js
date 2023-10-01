@@ -10,6 +10,8 @@ const passportLocalMongoose = require("passport-local-mongoose");
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const FacebookStrategy = require("passport-facebook"); 
 const findOrCreate = require("mongoose-findorcreate");
+const otplib = require('otplib');
+const qrcode = require('qrcode');
 
 const app = express();
 
@@ -39,7 +41,8 @@ mongoose.connect("mongodb://127.0.0.1:27017/userDB");
 const userSchema = new mongoose.Schema({
     email: String,
     password: String,
-    secret: String
+    cellphone: String,
+    secret: String,
 })
 
 userSchema.plugin(passportLocalMongoose);
@@ -51,7 +54,7 @@ passport.use(User.createStrategy());
 
 passport.serializeUser(function(user, cb) {
     process.nextTick(function() {
-      cb(null, { id: user.id, username: user.username, name: user.name });
+      cb(null, { id: user.id, username: user.username, name: user.name, cellphone: user.cellphone });
     });
   });
   
@@ -94,11 +97,10 @@ app.get("/logout", function(req, res){
 })
 
 app.post("/register", function(req, res){
-
-    User.register({username: req.body.username}, req.body.password)
+    User.register({username: req.body.username, cellphone: req.body.cellphone}, req.body.password)
     .then(function(user){
         passport.authenticate("local")(req,res, function(){
-            res.redirect("/secrets")
+            res.redirect("/qrcode")
         })
     }).catch(function(error){
         console.log(error)
@@ -111,6 +113,18 @@ app.get("/secrets", function(req,res){
   .then(function(users){
     if (users){
       res.render("secrets", {usersWithSecrets: users})
+    }
+  }).catch(function(err){
+    console.log(err)
+  })
+})
+
+app.get("/qrcode", function(req,res){
+  User.findById(req.user.id)
+  .then(function(user){
+    if (user){
+      const qrcode_url = integrateWithGoogleAuthenticator(user)
+      res.render("qrcode", {qrcode_url})
     }
   }).catch(function(err){
     console.log(err)
@@ -140,3 +154,26 @@ app.post('/login', passport.authenticate('local', { failureRedirect: '/login' })
 app.listen(3000, function(){
     console.log("Server started on port 3000")
 })
+
+function integrateWithGoogleAuthenticator(user) {
+  const secretKey2FA = otplib.authenticator.generateSecret();
+
+  // Gere uma URL para o código QR
+  const otpauthUrl = otplib.authenticator.keyuri(user.username, user.username, secretKey2FA);
+  console.log('otpauthUrl:', otpauthUrl);
+  console.log('secretKey2FA:', secretKey2FA);
+  console.log('user:', user);
+  // Crie o código QR
+  const qrcode_url = qrcode.toDataURL(otpauthUrl, (err, data_url) => {
+    if (err) {
+      console.error(err);
+      return;
+    }
+
+    // Exiba ou salve o data_url para gerar o código QR
+    console.log('Código QR gerado:', data_url);
+    return data_url;
+  });
+  return qrcode_url;
+}
+
