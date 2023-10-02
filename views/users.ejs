@@ -1,46 +1,36 @@
 <%- include('partials/header') %>
 <style>
-  .dropbtn {
-    background-color: #0491aa;
-    color: white;
-    padding: 16px;
-    font-size: 16px;
-    border: none;
+  section {
+    background: white;
+    border-radius: 10px;
+    padding: 15px;
+    width: 500px;
+    margin: auto;
+    box-shadow: 5px 5px 10px rgba(0, 0, 0, 0.397);
+    margin: 20px auto;
   }
-  
-  .dropdown {
-    position: relative;
-    display: inline-block;
-  }
-  
-  .dropdown-content {
-    display: none;
-    position: absolute;
-    background-color: #f1f1f1;
-    min-width: 160px;
-    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
-    z-index: 1;
-  }
-  
-  .dropdown-content a {
-    color: black;
-    padding: 12px 16px;
-    text-decoration: none;
-    display: block;
-  }
-  
-  .dropdown-content a:hover {background-color: #ddd;}
-  
-  .dropdown:hover .dropdown-content {display: block;}
-  
-  .dropdown:hover .dropbtn {background-color: #3e8e7a;}
   </style>
 <div class="jumbotron text-center">
   <div class="container">
+    <div>
+      <h1>Mensagens Recebidas</h1>
+      <hr>
+      <% if (typeof eumesmo !== 'undefined' && typeof eumesmo.messages!== 'undefined') { %>
+        <ul>
+          <% eumesmo.messages.forEach(function(message) { %>
+            <li><section><%= message.content %></section></li>
+          <% }); %>
+        </ul>
+      <% } else { %>
+        <section>
+          <p>Não há mensagens recebidas ainda, elas aparecerão aqui.</p>
+        </section>
+      <% } %>
+    </div>
     <i class="fas fa-key fa-6x" style="color:#3e8e7a"></i>
     <h1 class="display-3">Selecione para qual usuário vai enviar a mensagem</h1>
     <form method="POST" action="/users">
-      <select name="username" id="users" class="dropdown">
+      <select name="username" id="users">
 
           <% users.forEach(function(user){ %>
             <option value="<%=user.username%>"><%=user.username%></option>
