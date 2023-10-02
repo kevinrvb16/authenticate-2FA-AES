@@ -5,13 +5,16 @@
     <i class="fas fa-key fa-6x"></i>
     <h1 class="display-3">WhatsApp Messages</h1>
     <p class="secret-text">Don't keep your messages, share them anonymously!</p>
+    <div>
+    </div>
+    <form action="/chat" method="POST">
+        <input type="hidden" name="username" value="<%=username%>">
+        <p><%=username%></p>
 
-    <form action="/submit" method="POST">
-      <p><%=username%></p>
       <div class="form-group">
-        <input type="text" class="form-control text-center" name="secret" placeholder="What's your secret?">
+        <input type="text" class="form-control text-center" name="message" placeholder="Dígite aqui a mensagem?">
       </div>
-      <button type="submit" class="btn btn-dark">Submit</button>
+      <input type="submit" class="btn btn-dark">Submit</button>
     </form>
 
 

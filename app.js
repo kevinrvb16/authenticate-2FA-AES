@@ -12,8 +12,10 @@ const FacebookStrategy = require("passport-facebook");
 const findOrCreate = require("mongoose-findorcreate");
 const otplib = require('otplib');
 const qrcode = require('qrcode');
-const speakeasy = require('speakeasy');
 let secretKey2FA = otplib.authenticator.generateSecret();
+const CryptoJS = require('crypto-js');
+const algorithm = 'aes-256-gcm';
+require('crypto-js/aes');
 const app = express();
 
 app.use(express.static("public"));
@@ -44,6 +46,7 @@ const userSchema = new mongoose.Schema({
     password: String,
     cellphone: String,
     secret: String,
+    messages: Array
 })
 
 userSchema.plugin(passportLocalMongoose);
@@ -79,14 +82,12 @@ app.get("/register", function(req, res){
     res.render("register")
 })
 
-app.get("/submit", function(req, res){
-  console.log("req get submit")
-    console.log(req)
-    if (req.isAuthenticated()){
-        res.render("submit", req.username)
-    }else{
-        res.redirect("/login");
-    }
+app.get("/chat", function(req, res){
+  if (req.isAuthenticated()){
+      res.render("chat", req.username)
+  }else{
+      res.redirect("/login");
+  }
 })
 
 app.get("/logout", function(req, res){
@@ -100,7 +101,7 @@ app.get("/logout", function(req, res){
 })
 
 app.post("/register", function(req, res){
-    User.register({username: req.body.username, cellphone: req.body.cellphone}, req.body.password)
+    User.register({username: req.body.username, cellphone: req.body.cellphone, messages: []}, req.body.password)
     .then(function(user){
         passport.authenticate("local")(req,res, function(){
             res.redirect("/qrcode")
@@ -127,7 +128,7 @@ app.post("/users", function(req,res){
   const username = req.body.username
   console.log(username)
     if (username){
-      res.render("submit", {username})
+      res.render("chat", {username})
     }
 })
 
@@ -171,21 +172,31 @@ app.post("/qrcode", function(req, res){
 
 });
 
-app.post("/submit", function(req, res){
-  const submitedSecret = req.body.secret
-  
-  User.findById(req.user.id)
+app.post("/chat", function(req, res){
+  const { message, username } = req.body;
+
+  const mensagemCifrada = encryptMessageWithGCM(message)
+
+  sendMessage(mensagemCifrada, username)
+
+  res.send({ success: true, message: 'Mensagem enviada com sucesso' });
+})
+
+function sendMessage(mensagemCifrada, username){
+  console.log("username")
+  console.log(username)
+  User.findOne({username})
   .then(function(user){
-    user.secret = submitedSecret;
-    user.save()
-    .then(function(){
-      res.redirect("/users")
-    })
+    console.log("user")
+    console.log(user)
+    if (user){
+      user.messages.push(mensagemCifrada)
+      user.save()
+    }
   }).catch(function(err){
     console.log(err)
   })
-
-})
+}
 
 app.post('/login', passport.authenticate('local', { failureRedirect: '/login' }), function(req, res) {
     res.redirect('/verify');
@@ -215,3 +226,36 @@ app.get("/verify", function(req, res){
 app.listen(3000, function(){
     console.log("Server started on port 3000")
 })
+
+function encryptMessageWithGCM(mensagemOriginal) {
+  // Chave de criptografia e vetor de inicialização (IV)
+  const chaveCriptografada = crypto.randomBytes(32); // 256 bits
+  const iv = crypto.randomBytes(16); // 128 bits
+
+  const mensagemCifrada = encryptMessage(mensagemOriginal, chaveCriptografada, iv);
+
+  console.log('Mensagem Original:', mensagemOriginal);
+  console.log('Mensagem Cifrada:', mensagemCifrada.content);
+  return mensagemCifrada
+/*   const mensagemDecifrada = decryptMessage(mensagemCifrada.ciphertext, mensagemCifrada.tag, chaveCriptografada, iv);
+  console.log('Mensagem Decifrada:', mensagemDecifrada); */
+}
+
+// Função para cifrar a mensagem
+function encryptMessage(message, key, iv) {
+  const cipher = crypto.createCipheriv(algorithm, key, iv);
+  const encrypted = Buffer.concat([cipher.update(message, 'utf8'), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return {
+    content: encrypted.toString('hex'),
+    tag: tag.toString('hex'),
+  };
+}
+
+// Função para decifrar a mensagem
+function decryptMessage(encryptedData, key, iv) {
+  const decipher = crypto.createDecipheriv(algorithm, key, iv);
+  decipher.setAuthTag(Buffer.from(encryptedData.tag, 'hex'));
+  const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedData.content, 'hex')), decipher.final()]);
+  return decrypted.toString();
+}
