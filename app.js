@@ -58,7 +58,7 @@ passport.use(User.createStrategy());
 
 passport.serializeUser(function(user, cb) {
     process.nextTick(function() {
-      cb(null, { id: user.id, username: user.username, name: user.name, cellphone: user.cellphone });
+      cb(null, { id: user.id, username: user.username, name: user.name, cellphone: user.cellphone, messages: user.messages });
     });
   });
   
@@ -113,10 +113,11 @@ app.post("/register", function(req, res){
 })
 
 app.get("/users", function(req,res){
+  console.log(req.user)
   User.find({})
   .then(function(users){
     if (users){
-      res.render("users", { users })
+      res.render("users", { users, eumesmo: req.user })
     }
   }).catch(function(err){
     console.log(err)
@@ -124,9 +125,7 @@ app.get("/users", function(req,res){
 })
 
 app.post("/users", function(req,res){
-  console.log("req body do post users username")
   const username = req.body.username
-  console.log(username)
     if (username){
       res.render("chat", {username})
     }
@@ -161,8 +160,6 @@ app.post("/qrcode", function(req, res){
 
   // Verificar se o código fornecido é válido
   const isValid = otplib.authenticator.check(userProvidedCode, secretKey2FA);
-  console.log("qrcode")
-  console.log(isValid)
   // Exibir se o código é válido ou não
   if (isValid) {
     res.redirect("/users");
@@ -183,12 +180,8 @@ app.post("/chat", function(req, res){
 })
 
 function sendMessage(mensagemCifrada, username){
-  console.log("username")
-  console.log(username)
   User.findOne({username})
   .then(function(user){
-    console.log("user")
-    console.log(user)
     if (user){
       user.messages.push(mensagemCifrada)
       user.save()
@@ -208,9 +201,8 @@ app.post("/verify", function(req, res) {
 
   // Verificar se o código fornecido é válido
   const isValid = otplib.authenticator.check(userProvidedCode, secretKey2FA);
-
-  // Exibir se o código é válido ou não
   console.log(isValid)
+  // Exibir se o código é válido ou não
   if (isValid) {
     res.redirect("/users");
   } else {
