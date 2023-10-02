@@ -13,7 +13,7 @@ const findOrCreate = require("mongoose-findorcreate");
 const otplib = require('otplib');
 const qrcode = require('qrcode');
 const speakeasy = require('speakeasy');
-let secretKey2FA = "";
+let secretKey2FA = otplib.authenticator.generateSecret();
 const app = express();
 
 app.use(express.static("public"));
@@ -80,8 +80,10 @@ app.get("/register", function(req, res){
 })
 
 app.get("/submit", function(req, res){
+  console.log("req get submit")
+    console.log(req)
     if (req.isAuthenticated()){
-        res.render("submit")
+        res.render("submit", req.username)
     }else{
         res.redirect("/login");
     }
@@ -109,22 +111,31 @@ app.post("/register", function(req, res){
     })
 })
 
-app.get("/secrets", function(req,res){
-  User.find({"secret": {$ne: null}})
+app.get("/users", function(req,res){
+  User.find({})
   .then(function(users){
     if (users){
-      res.render("secrets", {usersWithSecrets: users})
+      res.render("users", { users })
     }
   }).catch(function(err){
     console.log(err)
   })
 })
 
+app.post("/users", function(req,res){
+  console.log("req body do post users username")
+  const username = req.body.username
+  console.log(username)
+    if (username){
+      res.render("submit", {username})
+    }
+})
+
 app.get("/qrcode", function(req,res){
   User.findById(req.user.id)
   .then(function(user){
     if (user){
-      secretKey2FA = otplib.authenticator.generateSecret();
+      /* secretKey2FA = otplib.authenticator.generateSecret(); */
       // Gere uma URL para o código QR
       const otpauthUrl = otplib.authenticator.keyuri(user.id, user.name, secretKey2FA);
       // Crie o código QR
@@ -143,17 +154,17 @@ app.get("/qrcode", function(req,res){
 })
 
 app.post("/qrcode", function(req, res){
-  // A chave secreta compartilhada entre o servidor e o Google Authenticator
 
   // O código fornecido pelo usuário (geralmente inserido manualmente)
   const userProvidedCode = req.body.token;
 
   // Verificar se o código fornecido é válido
   const isValid = otplib.authenticator.check(userProvidedCode, secretKey2FA);
-
+  console.log("qrcode")
+  console.log(isValid)
   // Exibir se o código é válido ou não
   if (isValid) {
-    res.redirect("/secrets");
+    res.redirect("/users");
   } else {
     res.redirect("/qrcode");
   }
@@ -168,7 +179,7 @@ app.post("/submit", function(req, res){
     user.secret = submitedSecret;
     user.save()
     .then(function(){
-      res.redirect("/secrets")
+      res.redirect("/users")
     })
   }).catch(function(err){
     console.log(err)
@@ -181,25 +192,20 @@ app.post('/login', passport.authenticate('local', { failureRedirect: '/login' })
 });
 
 app.post("/verify", function(req, res) {
-  const userToken = req.body.token; // Token inserido pelo usuário
+  // O código fornecido pelo usuário (geralmente inserido manualmente)
+  const userProvidedCode = req.body.token;
 
-  // Obter a chave secreta do usuário do banco de dados
-  const user = User.findOne({ username: req.body.username });
-  const secret = user.googleAuthSecret;
+  // Verificar se o código fornecido é válido
+  const isValid = otplib.authenticator.check(userProvidedCode, secretKey2FA);
 
-  // Verificar se o token inserido pelo usuário é válido
-  const verified = speakeasy.totp.verify({
-      secret: secret,
-      encoding: 'base32',
-      token: userToken,
-      window: 1 // Permite tokens para os últimos 30 segundos e os próximos 30 segundos
-  });
-
-  if (verified) {
-      res.redirect("/secrets");
+  // Exibir se o código é válido ou não
+  console.log(isValid)
+  if (isValid) {
+    res.redirect("/users");
   } else {
-      res.redirect("/verify");
+    res.redirect("/verify");
   }
+
 });
 
 app.get("/verify", function(req, res){

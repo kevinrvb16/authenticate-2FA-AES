@@ -1,0 +1,59 @@
+<%- include('partials/header') %>
+<style>
+  .dropbtn {
+    background-color: #0491aa;
+    color: white;
+    padding: 16px;
+    font-size: 16px;
+    border: none;
+  }
+  
+  .dropdown {
+    position: relative;
+    display: inline-block;
+  }
+  
+  .dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f1f1f1;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0,0,0,0.2);
+    z-index: 1;
+  }
+  
+  .dropdown-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+  }
+  
+  .dropdown-content a:hover {background-color: #ddd;}
+  
+  .dropdown:hover .dropdown-content {display: block;}
+  
+  .dropdown:hover .dropbtn {background-color: #3e8e7a;}
+  </style>
+<div class="jumbotron text-center">
+  <div class="container">
+    <i class="fas fa-key fa-6x" style="color:#3e8e7a"></i>
+    <h1 class="display-3">Selecione para qual usuário vai enviar a mensagem</h1>
+    <form method="POST" action="/users">
+      <select name="username" id="users" class="dropdown">
+
+          <% users.forEach(function(user){ %>
+            <option value="<%=user.username%>"><%=user.username%></option>
+          <% }) %>
+
+      </select>
+    
+      <hr>
+      
+      <a class="btn btn-light btn-lg" href="/logout" role="button">Log Out</a>
+      <input class="btn btn-dark btn-lg" type="submit" role="button" value="Escolher usuário"></input>
+    </form>
+  </div>
+</div>
+
+<%- include('partials/footer') %>
