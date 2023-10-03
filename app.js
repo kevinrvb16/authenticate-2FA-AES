@@ -7,13 +7,10 @@ const ejs = require("ejs");
 const session = require("express-session");
 const passport = require("passport");
 const passportLocalMongoose = require("passport-local-mongoose");
-const GoogleStrategy = require('passport-google-oauth20').Strategy;
-const FacebookStrategy = require("passport-facebook"); 
 const findOrCreate = require("mongoose-findorcreate");
 const otplib = require('otplib');
 const qrcode = require('qrcode');
 let secretKey2FA = otplib.authenticator.generateSecret();
-const CryptoJS = require('crypto-js');
 const algorithm = 'aes-256-gcm';
 require('crypto-js/aes');
 const app = express();
@@ -99,9 +96,15 @@ app.get("/logout", function(req, res){
         }
     });
 })
-
+const getUserData = (req) => {
+  let user = null;
+  User.findOne({ username: req.body.username }).then(function(userData){
+    user =userData;
+  })
+  return user;
+};
 app.post("/register", function(req, res){
-    User.register({username: req.body.username, cellphone: req.body.cellphone, messages: []}, req.body.password)
+    User.register({username: req.body.username, cellphone: req.body.cellphone, messages: [], salt: getUserData(req).salt} , req.body.password)
     .then(function(user){
         passport.authenticate("local")(req,res, function(){
             res.redirect("/qrcode")
@@ -171,10 +174,22 @@ app.post("/qrcode", function(req, res){
 
 app.post("/chat", function(req, res){
   const { message, username } = req.body;
+  console.log("---------------------------")
+  console.log(passport.session())
+  console.log("---------------------------")
+  /* const mensagemCifrada = encryptMessageWithGCM(message) */
+  let user = null;
 
-  const mensagemCifrada = encryptMessageWithGCM(message)
 
-  sendMessage(mensagemCifrada, username)
+  console.log(user)
+  encryptMessage(message, user.cellphone, req.user.salt, (encryptedMessage) => {
+    console.log('Mensagem Criptografada:', encryptedMessage);
+    console.log("salt")
+    console.log(req.user.salt)
+    console.log("cellphone")
+    console.log(req.user.cellphone)
+    sendMessage(encryptedMessage, username)
+  });
 
   res.send({ success: true, message: 'Mensagem enviada com sucesso' });
 })
@@ -219,7 +234,7 @@ app.listen(3000, function(){
     console.log("Server started on port 3000")
 })
 
-function encryptMessageWithGCM(mensagemOriginal) {
+/* function encryptMessageWithGCM(mensagemOriginal) {
   // Chave de criptografia e vetor de inicialização (IV)
   const chaveCriptografada = crypto.randomBytes(32); // 256 bits
   const iv = crypto.randomBytes(16); // 128 bits
@@ -229,11 +244,11 @@ function encryptMessageWithGCM(mensagemOriginal) {
   console.log('Mensagem Original:', mensagemOriginal);
   console.log('Mensagem Cifrada:', mensagemCifrada.content);
   return mensagemCifrada
-/*   const mensagemDecifrada = decryptMessage(mensagemCifrada.ciphertext, mensagemCifrada.tag, chaveCriptografada, iv);
-  console.log('Mensagem Decifrada:', mensagemDecifrada); */
-}
+  const mensagemDecifrada = decryptMessage(mensagemCifrada.ciphertext, mensagemCifrada.tag, chaveCriptografada, iv);
+  console.log('Mensagem Decifrada:', mensagemDecifrada); 
+} */
 
-// Função para cifrar a mensagem
+/* // Função para cifrar a mensagem
 function encryptMessage(message, key, iv) {
   const cipher = crypto.createCipheriv(algorithm, key, iv);
   const encrypted = Buffer.concat([cipher.update(message, 'utf8'), cipher.final()]);
@@ -243,11 +258,51 @@ function encryptMessage(message, key, iv) {
     tag: tag.toString('hex'),
   };
 }
-
+ */
 // Função para decifrar a mensagem
 function decryptMessage(encryptedData, key, iv) {
   const decipher = crypto.createDecipheriv(algorithm, key, iv);
   decipher.setAuthTag(Buffer.from(encryptedData.tag, 'hex'));
   const decrypted = Buffer.concat([decipher.update(Buffer.from(encryptedData.content, 'hex')), decipher.final()]);
   return decrypted.toString();
+}
+
+
+// Função para derivar a chave usando PBKDF2
+function deriveKey(cellphone, salt, callback) {
+  const iterations = 10000;
+  const keyLength = 32; // Tamanho da chave em bytes
+
+  crypto.pbkdf2(cellphone, salt, iterations, keyLength, 'sha256', (err, key) => {
+    if (err) throw err;
+    callback(key);
+  });
+}
+
+// Função para criptografar uma mensagem
+function encryptMessage(message, cellphone, salt, callback) {
+  deriveKey(cellphone, salt, (key) => {
+    const iv = crypto.randomBytes(16); // Gera um IV aleatório de 16 bytes
+    const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+    let encrypted = cipher.update(message, 'utf-8', 'hex');
+    encrypted += cipher.final('hex');
+
+    const encryptedMessage = iv.toString('hex') + encrypted;
+    callback(encryptedMessage);
+  });
+}
+
+
+// Função para descriptografar uma mensagem
+function decryptMessage(encryptedMessage, cellphone, salt, callback) {
+  deriveKey(cellphone, salt, (key) => {
+    const iv = encryptedMessage.slice(0, 16); // Assume que o IV está nos primeiros 16 bytes
+    const encryptedData = encryptedMessage.slice(16);
+
+    const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+    let decrypted = decipher.update(encryptedData, 'hex', 'utf-8');
+    decrypted += decipher.final('utf-8');
+
+    callback(decrypted);
+  });
 }
