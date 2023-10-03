@@ -15,10 +15,10 @@
     <div>
       <h1>Mensagens Recebidas</h1>
       <hr>
-      <% if (typeof eumesmo !== 'undefined' && typeof eumesmo.messages!== 'undefined') { %>
+      <% if (typeof messagesDecrypted !== 'undefined') { %>
         <ul>
-          <% eumesmo.messages.forEach(function(message) { %>
-            <li><section><%= message.content %></section></li>
+          <% messagesDecrypted.forEach(function(message) { %>
+            <li><section><%= message %></section></li>
           <% }); %>
         </ul>
       <% } else { %>

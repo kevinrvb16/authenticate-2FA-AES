@@ -36,7 +36,7 @@ app.use(session({
 app.use(passport.initialize());
 app.use(passport.session());
 
-mongoose.connect("mongodb://127.0.0.1:27017/userDB");
+mongoose.connect("mongodb+srv://kevinrvb16:pYG2PgR5Ml6m2yN8@cluster0.uvmral8.mongodb.net/?retryWrites=true&w=majority");
 
 const userSchema = new mongoose.Schema({
     email: String,
@@ -118,20 +118,19 @@ app.post("/register", function(req, res){
 })
 
 app.get("/users", function(req,res){
-  console.log("---------------------------")
-  console.log(req.user)
-  console.log("---------------------------")
+  let messagesDecrypted = []
   for (let i = 0; i < req.user.messages.length; i++) {
     const messageEncrypted = req.user.messages[i];
     decryptMessage(messageEncrypted, (decryptedMessage) => {
       console.log('Mensagem Decifrada:', decryptedMessage);
+      messagesDecrypted.push(decryptedMessage);
     });
   }
   console.log(req.user)
   User.find({})
   .then(function(users){
     if (users){
-      res.render("users", { users, eumesmo: req.user })
+      res.render("users", { users, messagesDecrypted })
     }
   }).catch(function(err){
     console.log(err)
@@ -213,7 +212,7 @@ function sendMessage(mensagemCifrada, username){
 }
 
 app.post('/login', passport.authenticate('local', { failureRedirect: '/login' }), function(req, res) {
-    res.redirect('/verify');
+    res.redirect('/qrcode');
 });
 
 app.post("/verify", function(req, res) {
